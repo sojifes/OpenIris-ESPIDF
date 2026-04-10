@@ -192,6 +192,18 @@ menu "OpenIris: LED Configuration"
             Duty cycle of the PWM signal for external IR LEDs, in percent.
             0 means always off, 100 means always on.
 
+    config LED_EXTERNAL_ACTIVE_LOW
+        bool "External LED is active-low (P-MOSFET driven)"
+        depends on LED_EXTERNAL_CONTROL
+        default n
+        help
+            Enable when the external IR LED is driven through a P-channel MOSFET
+            (or equivalent active-low high-side switch). In that topology a logic
+            LOW on the GPIO turns the LED ON, so the LEDC duty cycle must be
+            inverted in software (raw_duty = 255 - desired_duty) to keep the
+            user-facing 0-100% brightness scale intuitive: 0% = off, 100% = full
+            brightness, regardless of the underlying drive polarity.
+
 endmenu
 
 menu "OpenIris: Monitoring"

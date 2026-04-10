@@ -2,6 +2,21 @@
 
 const char* LED_MANAGER_TAG = "[LED_MANAGER]";
 
+#ifdef CONFIG_LED_EXTERNAL_CONTROL
+// Translate a logical 0..255 brightness into the raw LEDC duty value the
+// hardware expects. On boards where the IR LED is driven through a P-MOSFET
+// (active-low), the duty must be inverted so that the user-facing 0-100%
+// brightness scale stays intuitive (0 = off, 100 = full).
+static inline uint32_t externalLedRawDuty(uint32_t logicalDuty)
+{
+#ifdef CONFIG_LED_EXTERNAL_ACTIVE_LOW
+    return 255 - logicalDuty;
+#else
+    return logicalDuty;
+#endif
+}
+#endif
+
 // Pattern design rules:
 //  - Error states: isError=true, repeat indefinitely, easily distinguishable (avoid overlap).
 //  - Non-error repeating: show continuous activity (e.g. streaming ON steady, connecting blink).
@@ -47,9 +62,10 @@ void LEDManager::setup()
     const auto resolution = LEDC_TIMER_8_BIT;
     const auto deviceConfig = this->deviceConfig->getDeviceConfig();
 
-    const uint32_t dutyCycle = (deviceConfig.led_external_pwm_duty_cycle * 255) / 100;
+    const uint32_t logicalDuty = (deviceConfig.led_external_pwm_duty_cycle * 255) / 100;
+    const uint32_t dutyCycle = externalLedRawDuty(logicalDuty);
 
-    ESP_LOGI(LED_MANAGER_TAG, "Setting dutyCycle to: %lu ", dutyCycle);
+    ESP_LOGI(LED_MANAGER_TAG, "Setting dutyCycle to: %lu (raw %lu)", logicalDuty, dutyCycle);
 
     ledc_timer_config_t ledc_timer = {
         .speed_mode = LEDC_LOW_SPEED_MODE, .duty_resolution = resolution, .timer_num = LEDC_TIMER_0, .freq_hz = freq, .clk_cfg = LEDC_AUTO_CLK};
@@ -167,7 +183,8 @@ void LEDManager::toggleLED(const bool state) const
     if (ledStateMap.contains(this->currentState) && ledStateMap.at(this->currentState).isError)
     {
         // For pattern ON use 50%, OFF use 0%
-        uint32_t duty = (state == LED_ON) ? ((50 * 255) / 100) : 0;
+        const uint32_t logicalDuty = (state == LED_ON) ? ((50 * 255) / 100) : 0;
+        const uint32_t duty = externalLedRawDuty(logicalDuty);
         ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty));
         ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
     }
@@ -177,8 +194,9 @@ void LEDManager::toggleLED(const bool state) const
 void LEDManager::setExternalLEDDutyCycle(uint8_t dutyPercent)
 {
 #ifdef CONFIG_LED_EXTERNAL_CONTROL
-    const uint32_t dutyCycle = (static_cast<uint32_t>(dutyPercent) * 255) / 100;
-    ESP_LOGI(LED_MANAGER_TAG, "Updating external LED duty to %u%% (raw %lu)", dutyPercent, dutyCycle);
+    const uint32_t logicalDuty = (static_cast<uint32_t>(dutyPercent) * 255) / 100;
+    const uint32_t dutyCycle = externalLedRawDuty(logicalDuty);
+    ESP_LOGI(LED_MANAGER_TAG, "Updating external LED duty to %u%% (logical %lu, raw %lu)", dutyPercent, logicalDuty, dutyCycle);
 
     // Apply to LEDC hardware live
     // We configured channel 0 in setup with LEDC_LOW_SPEED_MODE

@@ -135,7 +135,23 @@ CommandManagerResponse CommandManager::executeFromJson(const std::string_view js
 
 CommandManagerResponse CommandManager::executeFromType(const CommandType type, const std::string_view json) const
 {
-    const auto command = createCommand(type, json);
+    // Parse the body into a JSON payload. createCommand expects a parsed
+    // nlohmann::json (an OBJECT), not a raw string — passing a string_view
+    // would implicitly construct a JSON STRING value, and command handlers
+    // would then fail every `json.contains("...")` check. Empty body is
+    // allowed (GET endpoints) and becomes an empty object so handlers that
+    // ignore the payload still work.
+    nlohmann::json parsedPayload = nlohmann::json::object();
+    if (!json.empty())
+    {
+        if (!nlohmann::json::accept(json))
+        {
+            return CommandManagerResponse(nlohmann::json{{"error", "Invalid JSON in request body"}});
+        }
+        parsedPayload = nlohmann::json::parse(json);
+    }
+
+    const auto command = createCommand(type, parsedPayload);
 
     if (command == nullptr)
     {

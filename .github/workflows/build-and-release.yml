@@ -28,7 +28,7 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - id: set-matrix
-        run: echo "matrix={\"firmware_config\":[{\"board_name\":\"esp32AIThinker\", \"target\":\"esp32\"}, {\"board_name\":\"esp32M5Stack\", \"target\":\"esp32\"}, {\"board_name\":\"esp32cam\", \"target\":\"esp32\"}, {\"board_name\":\"esp_eye\", \"target\":\"esp32s3\"}, {\"board_name\":\"facefocusvr_eye_L\", \"target\":\"esp32s3\"}, {\"board_name\":\"facefocusvr_eye_R\", \"target\":\"esp32s3\"}, {\"board_name\":\"facefocusvr_face\", \"target\":\"esp32s3\"}, {\"board_name\":\"project_babble\", \"target\":\"esp32s3\"}, {\"board_name\":\"seed_studio_xiao_esp32s3\", \"target\":\"esp32s3\"}, {\"board_name\":\"wrooms3\", \"target\":\"esp32s3\"}, {\"board_name\":\"wrooms3QIO\", \"target\":\"esp32s3\"}, {\"board_name\":\"wrover\", \"target\":\"esp32s3\"}]}" >> $GITHUB_OUTPUT
+        run: echo "matrix={\"firmware_config\":[{\"board_name\":\"esp32AIThinker\", \"target\":\"esp32\"}, {\"board_name\":\"esp32M5Stack\", \"target\":\"esp32\"}, {\"board_name\":\"esp32cam\", \"target\":\"esp32\"}, {\"board_name\":\"esp_eye\", \"target\":\"esp32s3\"}, {\"board_name\":\"facefocusvr_eye_L\", \"target\":\"esp32s3\"}, {\"board_name\":\"facefocusvr_eye_R\", \"target\":\"esp32s3\"}, {\"board_name\":\"facefocusvr_face\", \"target\":\"esp32s3\"}, {\"board_name\":\"project_babble\", \"target\":\"esp32s3\"}, {\"board_name\":\"qqesp\", \"target\":\"esp32s3\"}, {\"board_name\":\"seed_studio_xiao_esp32s3\", \"target\":\"esp32s3\"}, {\"board_name\":\"wrooms3\", \"target\":\"esp32s3\"}, {\"board_name\":\"wrooms3QIO\", \"target\":\"esp32s3\"}, {\"board_name\":\"wrover\", \"target\":\"esp32s3\"}]}" >> $GITHUB_OUTPUT
 
   build:
     needs: setup

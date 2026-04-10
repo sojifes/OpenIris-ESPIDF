@@ -220,7 +220,11 @@ void startWiFiMode()
     {
         streamServer.startStreamServer();
     }
-    xTaskCreate(HandleRestAPIPollTask, "HandleRestAPIPollTask", 2024 * 2, restAPI.get(),
+    // Stack size needs to be large enough to fit mongoose poll + command dispatch +
+    // nlohmann::json construction + std::format (used by getBatteryStatusCommand etc.).
+    // Earlier value of 4 KB caused stack overflow on /api/get/battery/ — match the
+    // serial task size which handles the same command pipeline.
+    xTaskCreate(HandleRestAPIPollTask, "HandleRestAPIPollTask", 1024 * 8, restAPI.get(),
                 1,  // it's the rest API, we only serve commands over it so we don't really need a higher priority
                 nullptr);
 #else

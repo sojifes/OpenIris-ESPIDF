@@ -7,6 +7,34 @@
 #define GET_METHOD "GET"
 #define DELETE_METHOD "DELETE"
 
+// Mongoose has its own logging system that prints raw bytes with a custom
+// format ("c55c   3 mongoose.c:7956:accept_conn   ...") which doesn't blend
+// with ESP-IDF's ESP_LOG output. Bridge mongoose logging into ESP_LOG so the
+// serial console stays consistent. Mongoose calls the sink one char at a
+// time, so we buffer until newline. Mongoose runs single-threaded on the
+// REST poll task, so the static buffer needs no synchronization.
+namespace
+{
+constexpr size_t MG_LOG_BUF_SIZE = 256;
+char s_mg_log_buf[MG_LOG_BUF_SIZE];
+size_t s_mg_log_len = 0;
+
+void mg_log_to_esp(char ch, void* /*param*/)
+{
+    if (ch == '\n' || ch == '\r' || s_mg_log_len >= MG_LOG_BUF_SIZE - 1)
+    {
+        if (s_mg_log_len > 0)
+        {
+            s_mg_log_buf[s_mg_log_len] = '\0';
+            ESP_LOGI("MONGOOSE", "%s", s_mg_log_buf);
+            s_mg_log_len = 0;
+        }
+        return;
+    }
+    s_mg_log_buf[s_mg_log_len++] = ch;
+}
+}  // namespace
+
 bool getIsSuccess(const nlohmann::json& response)
 {
     // since the commandManager will be returning CommandManagerResponse to simplify parsing on the clients end
@@ -61,6 +89,7 @@ RestAPI::RestAPI(std::string url, std::shared_ptr<CommandManager> commandManager
     routes.emplace("/api/get/led_duty_cycle/", RequestBaseData(GET_METHOD, CommandType::GET_LED_DUTY_CYCLE, 200, 400));
     routes.emplace("/api/get/serial_number/", RequestBaseData(GET_METHOD, CommandType::GET_SERIAL, 200, 400));
     routes.emplace("/api/get/led_current/", RequestBaseData(GET_METHOD, CommandType::GET_LED_CURRENT, 200, 400));
+    routes.emplace("/api/get/battery/", RequestBaseData(GET_METHOD, CommandType::GET_BATTERY_STATUS, 200, 400));
     routes.emplace("/api/get/who_am_i/", RequestBaseData(GET_METHOD, CommandType::GET_WHO_AM_I, 200, 400));
 
     // deletes via DELETE
@@ -75,7 +104,12 @@ RestAPI::RestAPI(std::string url, std::shared_ptr<CommandManager> commandManager
 
 void RestAPI::begin()
 {
-    mg_log_set(MG_LL_DEBUG);
+    // Route mongoose log output through ESP_LOG so it shares the project's
+    // standard timestamp / tag format. Lower the level from DEBUG (per-byte
+    // read/write spam) to ERROR — accept/close events become invisible at
+    // steady state, but real failures still surface with consistent format.
+    mg_log_set_fn(mg_log_to_esp, nullptr);
+    mg_log_set(MG_LL_ERROR);
     mg_mgr_init(&mgr);
     // every route is handled through this class, with commands themselves by a command manager
     // hence we pass a pointer to this in mg_http_listen
